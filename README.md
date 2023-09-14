@@ -31,7 +31,12 @@ ChannelFuture:  Netty 中所有的 I/O 操作都是异步的，即操作不会�
 
 ChannelPromise: promise，其实跟前端的 promise 是类似的逻辑，在 ChannelFuture 之上加了可以主动设置成功和失败的处理
 
+# 其他
+编译过程中，报：io.netty.util.collection包不存在解决方法：
 
+cd common
+
+mvn clean compile -Dcheckstyle.skip=true
 
 ![Build project](https://github.com/netty/netty/workflows/Build%20project/badge.svg)
 
