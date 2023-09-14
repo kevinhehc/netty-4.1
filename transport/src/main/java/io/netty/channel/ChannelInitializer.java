@@ -102,8 +102,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     /**
      * {@inheritDoc} If override this method ensure you call super!
      */
+    // 当前处理器所封装的处理器节点被添加到pipeline后就会触发该方法的执行
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        // 若channel已经完成了注册
         if (ctx.channel().isRegistered()) {
             // This should always be true with our current DefaultChannelPipeline implementation.
             // The good thing about calling initChannel(...) in handlerAdded(...) is that there will be no ordering
@@ -112,6 +114,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             if (initChannel(ctx)) {
 
                 // We are done with init the Channel, removing the initializer now.
+                // 将当前处理器节点从initMap集合中删除
                 removeState(ctx);
             }
         }
@@ -124,8 +127,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
 
     @SuppressWarnings("unchecked")
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
+        // 将当前处理器节点添加到initMap集合中
         if (initMap.add(ctx)) { // Guard against re-entrance.
             try {
+                // 调用重写的initChannel()
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).
@@ -133,6 +138,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
                 exceptionCaught(ctx, cause);
             } finally {
                 if (!ctx.isRemoved()) {
+                    // 将当前处理器节点从pipeline中删除
                     ctx.pipeline().remove(this);
                 }
             }

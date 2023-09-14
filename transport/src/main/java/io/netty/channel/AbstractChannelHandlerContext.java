@@ -105,7 +105,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                                   String name, Class<? extends ChannelHandler> handlerClass) {
         this.name = ObjectUtil.checkNotNull(name, "name");
         this.pipeline = pipeline;
+        // 每个处理器节点都会绑定一个executor
         this.executor = executor;
+        // 执行标记
         this.executionMask = mask(handlerClass);
         // Its ordered if its driven by the EventLoop or the given Executor is an instanceof OrderedEventExecutor.
         ordered = executor == null || executor instanceof OrderedEventExecutor;
@@ -626,7 +628,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             return promise;
         }
 
+        // 查找要处理该请求的处理器节点
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_CONNECT);
+        // 获取处理器节点的executor
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeConnect(remoteAddress, localAddress, promise);
@@ -642,6 +646,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeConnect(SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise) {
+        // 判断该处理器节点中对应的处理器是否已经添加
         if (invokeHandler()) {
             try {
                 // DON'T CHANGE
@@ -957,6 +962,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             throw e;
         }
 
+        // 查找下一个节点(prev)
         final AbstractChannelHandlerContext next = findContextOutbound(flush ?
                 (MASK_WRITE | MASK_FLUSH) : MASK_WRITE);
         final Object m = pipeline.touch(msg, next);
@@ -1089,13 +1095,16 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     final boolean setAddComplete() {
         for (;;) {
+            // 获取处理器状态
             int oldState = handlerState;
+            // 处理器状态为移除状态
             if (oldState == REMOVE_COMPLETE) {
                 return false;
             }
             // Ensure we never update when the handlerState is REMOVE_COMPLETE already.
             // oldState is usually ADD_PENDING but can also be REMOVE_COMPLETE when an EventExecutor is used that is not
             // exposing ordering guarantees.
+            // 通过CAS方式将处理器状态修改为 添加完毕
             if (HANDLER_STATE_UPDATER.compareAndSet(this, oldState, ADD_COMPLETE)) {
                 return true;
             }
@@ -1110,6 +1119,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     final void callHandlerAdded() throws Exception {
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
+        // CAS 方式将处理器状态修改为 添加完毕 ADD_COMPLETE
         if (setAddComplete()) {
             handler().handlerAdded(this);
         }

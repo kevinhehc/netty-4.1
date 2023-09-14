@@ -58,6 +58,8 @@ import static io.netty.channel.internal.ChannelUtils.MAX_BYTES_PER_GATHERING_WRI
  */
 public class NioSocketChannel extends AbstractNioByteChannel implements io.netty.channel.socket.SocketChannel {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioSocketChannel.class);
+    //当前JVM中唯一的一个单例的provider
+    // NIO中的provider，其用于创建selector与channel。并且是单例的
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 
     private static final Method OPEN_SOCKET_CHANNEL_WITH_FAMILY =
@@ -78,6 +80,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * Create a new instance
      */
     public NioSocketChannel() {
+        // DEFAULT_SELECTOR_PROVIDER：全局唯一的provider，通过它可以创建出selector与channel
         this(DEFAULT_SELECTOR_PROVIDER);
     }
 
@@ -314,13 +317,16 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     @Override
     protected boolean doConnect(SocketAddress remoteAddress, SocketAddress localAddress) throws Exception {
         if (localAddress != null) {
+            // 将localAddress绑定到channel
             doBind0(localAddress);
         }
 
         boolean success = false;
         try {
+            // 连接server地址，若本次连接成功，则成功；若不成功，则当前channel的连接就绪
             boolean connected = SocketUtils.connect(javaChannel(), remoteAddress);
             if (!connected) {
+                // 指定其关注的事件为  连接就绪
                 selectionKey().interestOps(SelectionKey.OP_CONNECT);
             }
             success = true;

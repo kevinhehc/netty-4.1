@@ -34,6 +34,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(MultithreadEventLoopGroup.class);
 
+    //默认当前CPU逻辑核心数的两倍
     private static final int DEFAULT_EVENT_LOOP_THREADS;
 
     static {
@@ -83,6 +84,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     @Override
     public ChannelFuture register(Channel channel) {
+        // next() 从eventLoop数组中选择一个eventLoop
         return next().register(channel);
     }
 

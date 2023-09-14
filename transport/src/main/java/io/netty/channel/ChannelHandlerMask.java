@@ -76,9 +76,11 @@ final class ChannelHandlerMask {
     static int mask(Class<? extends ChannelHandler> clazz) {
         // Try to obtain the mask from the cache first. If this fails calculate it and put it in the cache for fast
         // lookup in the future.
+        // 从缓存中尝试着获取标记
         Map<Class<? extends ChannelHandler>, Integer> cache = MASKS.get();
         Integer mask = cache.get(clazz);
         if (mask == null) {
+            // 创建一个标记
             mask = mask0(clazz);
             cache.put(clazz, mask);
         }
@@ -88,6 +90,9 @@ final class ChannelHandlerMask {
     /**
      * Calculate the {@code executionMask}.
      */
+    // 这是充分使用了二进制的开关的性质，这里方法的作用就是将所有的 InboundHandler 处理器和
+    // OutboundHandler 处理器中定义的方法进行标记，如果其中的方法被实现了，并且方法中没有 @Skip 注解，
+    // 则当前方法对应的二进制位的值是 1，当当前标记位等于 1 时，则标记当前方法时需要执行的。
     private static int mask0(Class<? extends ChannelHandler> handlerType) {
         int mask = MASK_EXCEPTION_CAUGHT;
         try {

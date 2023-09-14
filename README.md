@@ -1,3 +1,33 @@
+# netty 源码注释
+
+Channel: Channel是 Java NIO 的一个基本构造。可以看作是传入或传出数据的载体。因此，它可以被打开或关闭，连接或者断开连接。
+NioSocketChannel: 已经建立的连接，进行数据读写用的。
+NioServerSocketChannel: 服务端用于接受客户端的连接的通道。
+
+EventLoop: 定义了Netty的核心抽象，用来处理连接的生命周期中所发生的事件，在内部，将会为每个Channel分配一个EventLoop，实际内部有单个线程
+NioEventLoop: 对 channel 进行轮训处理的具体实现。
+EventLoopGroup: 是一个 EventLoop 池，包含很多的 EventLoop。
+
+Bootstrap:   是客户端的引导类，Bootstrap 在调用 bind()（连接UDP）和 connect()（连接TCP）方法时，
+会新创建一个 Channel，仅创建一个单独的、没有父 Channel 的 Channel 来实现所有的网络交换。
+ServerBootstrap: 是服务端的引导类，ServerBootstrap 在调用 bind() 方法时会创建一个 ServerChannel 来接受来自客户端的连接，
+并且该 ServerChannel 管理了多个子 Channel 用于同客户端之间的通信。
+
+ChannelHandler: 对 Channel 中数据的处理器，这些处理器可以是系统本身定义好的编解码器，也可以是用户自定义的。
+这些处理器会被统一添加到一个 ChannelPipeline 的对象中，然后按照添加的顺序对 Channel 中的数据进行依次处理。
+
+
+ChannelPipeline: 把 ChannelHandler 串起来，进行串行的调用，责任链模式。
+
+ChannelFuture:  Netty 中所有的 I/O 操作都是异步的，即操作不会立即得到返回结果，
+所以 Netty 中定义了一个 ChannelFuture 对象作为这个异步操作的“代言人”，表示异步操作本身。
+如果想获取到该异步操作的返回值，可以通过该异步操作对象的addListener() 方法为该异步操作添加监 NIO 网络编程框架 Netty 听器，
+为其注册回调：当结果出来后马上调用执行。
+
+ChannelPromise: promise，其实跟前端的 promise 是类似的逻辑，在 ChannelFuture 之上加了可以主动设置成功和失败的处理
+
+
+
 ![Build project](https://github.com/netty/netty/workflows/Build%20project/badge.svg)
 
 # Netty Project

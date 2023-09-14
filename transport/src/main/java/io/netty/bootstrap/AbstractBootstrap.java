@@ -231,11 +231,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind() {
+        // 验证group与channelFactory是否为null
         validate();
         SocketAddress localAddress = this.localAddress;
         if (localAddress == null) {
             throw new IllegalStateException("localAddress not set");
         }
+        // 具体 bind 的实现
         return doBind(localAddress);
     }
 
@@ -269,33 +271,46 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 创建、初始化channel，并将其注册到selector，返回一个异步结果
         final ChannelFuture regFuture = initAndRegister();
+        // 从异步结果中获取channel
         final Channel channel = regFuture.channel();
+        // 若异步操作执行过程中出现了异常，则直接返回异步对象（直接结束）
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        // 处理异步操作完成的情况（可能是正常结束，或发生异常，或任务取消，这些情况都属于有结果的情况）
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            // 绑定指定的端口
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
+            // 处理异步操作尚未有结果的情况
+
+
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            // 为异步操作添加监听
             regFuture.addListener(new ChannelFutureListener() {
+                // 若异步操作具有了结果（即完成），则触发该方法的执行
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
                     Throwable cause = future.cause();
+                    // 异步操作执行过程中出现了问题
                     if (cause != null) {
                         // Registration on the EventLoop failed so fail the ChannelPromise directly to not cause an
                         // IllegalStateException once we try to access the EventLoop of the Channel.
+                        // 异步操作正常结果
                         promise.setFailure(cause);
                     } else {
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
 
+                        // 绑定指定的端口
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -307,7 +322,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 创建channel
             channel = channelFactory.newChannel();
+            // 初始化channel
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -320,6 +337,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        // 将channel注册到selector
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -352,6 +370,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
+                // 只有当channel初始化注册成功后，才会进行绑定
                 if (regFuture.isSuccess()) {
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {

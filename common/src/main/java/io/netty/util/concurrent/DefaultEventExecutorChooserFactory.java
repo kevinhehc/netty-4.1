@@ -26,12 +26,15 @@ import java.util.concurrent.atomic.AtomicLong;
 @UnstableApi
 public final class DefaultEventExecutorChooserFactory implements EventExecutorChooserFactory {
 
+    //选择器工厂实例
     public static final DefaultEventExecutorChooserFactory INSTANCE = new DefaultEventExecutorChooserFactory();
 
     private DefaultEventExecutorChooserFactory() { }
 
     @Override
     public EventExecutorChooser newChooser(EventExecutor[] executors) {
+        // 根据是不是2的指数次方进行选择
+        // 因为是2的指数次方的时候，可以直接进行「位与」，不用取模
         if (isPowerOfTwo(executors.length)) {
             return new PowerOfTwoEventExecutorChooser(executors);
         } else {

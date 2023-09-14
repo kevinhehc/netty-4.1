@@ -78,9 +78,11 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
+        // 这里的this.ch为NIO原生channel
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {
+            // NIO，非阻塞
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
@@ -245,6 +247,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+                // 连接
                 if (doConnect(remoteAddress, localAddress)) {
                     fulfillConnectPromise(promise, wasActive);
                 } else {
@@ -377,6 +380,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                // 在这里进行了注册，将NIO原生channel注册到了NIO原生selector
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

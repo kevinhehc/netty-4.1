@@ -94,9 +94,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         succeededFuture = new SucceededChannelFuture(channel, null);
         voidPromise =  new VoidChannelPromise(channel, true);
 
+        // 创建尾节点
         tail = new TailContext(this);
+        // 创建头节点
         head = new HeadContext(this);
 
+        // 将头尾节点连接
         head.next = tail;
         tail.prev = head;
     }
@@ -117,10 +120,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private AbstractChannelHandlerContext newContext(EventExecutorGroup group, String name, ChannelHandler handler) {
+        // childExecutor() 获取与当前处理器节点相绑定的eventLoop
         return new DefaultChannelHandlerContext(this, childExecutor(group), name, handler);
     }
 
     private EventExecutor childExecutor(EventExecutorGroup group) {
+        // 若group为null，则与该节点绑定的eventLoop为null
         if (group == null) {
             return null;
         }
@@ -201,8 +206,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         synchronized (this) {
             checkMultiplicity(handler);
 
+            // 将处理器包装为一个节点 filterName() 获取到节点的名称
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            // 将新的节点添加到pipeline
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
@@ -214,12 +221,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
                 return this;
             }
 
+            // 获取新建节点绑定的eventLoop
             EventExecutor executor = newCtx.executor();
+            // 若该eventLoop绑定的线程与当前线程不是同一个，则执行下面的代码
             if (!executor.inEventLoop()) {
                 callHandlerAddedInEventLoop(newCtx, executor);
                 return this;
             }
         }
+        // 若该eventLoop绑定的线程与当前线程是同一个线程，
+        // 则调用重写的handlerAdded()方法
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -367,6 +378,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline addLast(ChannelHandler... handlers) {
+        // 第一个参数为group，其值默认为null
         return addLast(null, handlers);
     }
 
@@ -374,10 +386,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     public final ChannelPipeline addLast(EventExecutorGroup executor, ChannelHandler... handlers) {
         ObjectUtil.checkNotNull(handlers, "handlers");
 
+        // 遍历所有handlers，逐个添加到pipeline
         for (ChannelHandler h: handlers) {
             if (h == null) {
                 break;
             }
+            // 这里第二个参数是处理器name
             addLast(executor, null, h);
         }
 
@@ -592,6 +606,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         oldCtx.next = newCtx;
     }
 
+    // 检测处理器是否被多次添加
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
@@ -1134,6 +1149,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private void callHandlerAddedInEventLoop(final AbstractChannelHandlerContext newCtx, EventExecutor executor) {
+        // 将当前节点状态设置成处理中，等待 callHandlerAdded0 执行完成
         newCtx.setAddPending();
         executor.execute(new Runnable() {
             @Override
@@ -1302,6 +1318,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    // 头节点既是inbound处理器，也是outbound处理器
     final class HeadContext extends AbstractChannelHandlerContext
             implements ChannelOutboundHandler, ChannelInboundHandler {
 
@@ -1407,6 +1424,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // 准备调用其下一个节点的channelRead()
             ctx.fireChannelRead(msg);
         }
 

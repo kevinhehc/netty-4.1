@@ -117,6 +117,7 @@ public final class NioDatagramChannel
      * Create a new instance which will use the Operation Systems default {@link InternetProtocolFamily}.
      */
     public NioDatagramChannel() {
+        // DEFAULT_SELECTOR_PROVIDER 静态变量
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
 

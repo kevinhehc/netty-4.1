@@ -143,6 +143,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 rejectedExecutionHandler);
         this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");
         this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
+        // 创建一个selector的二元组
         final SelectorTuple selectorTuple = openSelector();
         this.selector = selectorTuple.selector;
         this.unwrappedSelector = selectorTuple.unwrappedSelector;
@@ -510,12 +511,17 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
                     switch (strategy) {
                     case SelectStrategy.CONTINUE:
+                        // NioEventLoop不支持
                         continue;
 
                     case SelectStrategy.BUSY_WAIT:
+                        // NioEventLoop不支持
                         // fall-through to SELECT since the busy-wait is not supported with NIO
 
                     case SelectStrategy.SELECT:
+                        // SELECT = -1 能走到这里，说明当前任务队列中没有任务
+
+                        // 进行阻塞式选择
                         long curDeadlineNanos = nextScheduledTaskDeadlineNanos();
                         if (curDeadlineNanos == -1L) {
                             curDeadlineNanos = NONE; // nothing on the calendar
@@ -545,6 +551,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 selectCnt++;
                 cancelledKeys = 0;
                 needsToSelectAgain = false;
+                // 该变量用于设置“处理就绪channel的IO所使用的时间”与“处理任务队列中任务使用时间”的比例 该值为整型，不大于100
                 final int ioRatio = this.ioRatio;
                 boolean ranTasks;
                 if (ioRatio == 100) {
@@ -557,12 +564,16 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         ranTasks = runAllTasks();
                     }
                 } else if (strategy > 0) {
+                    // 记录处理就绪channel的IO开始执行的时间点
                     final long ioStartTime = System.nanoTime();
                     try {
+                        // 处理就绪channel的IO
                         processSelectedKeys();
                     } finally {
                         // Ensure we always run tasks.
+                        // 计算出处理就绪channel的IO所使用的时长
                         final long ioTime = System.nanoTime() - ioStartTime;
+                        // 执行任务队列中的任务
                         ranTasks = runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
                     }
                 } else {
@@ -646,9 +657,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     }
 
     private void processSelectedKeys() {
+        // 判断channel的selectedKeys是否是优化过的
         if (selectedKeys != null) {
+            // 优化处理方式
             processSelectedKeysOptimized();
         } else {
+            // 普通处理方式
             processSelectedKeysPlain(selector.selectedKeys());
         }
     }
@@ -713,18 +727,23 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     private void processSelectedKeysOptimized() {
         for (int i = 0; i < selectedKeys.size; ++i) {
+            // 从数组中取出一个元素
             final SelectionKey k = selectedKeys.keys[i];
             // null out entry in the array to allow to have it GC'ed once the Channel close
             // See https://github.com/netty/netty/issues/2363
+            // 移除已经取出的 SelectionKey，使 GC 可以处理到已经关闭的 channel
             selectedKeys.keys[i] = null;
 
+            // 获取selectionKey的附件，该附件中可以存放任意数据，不过这里存放的是NIO原生channel
             final Object a = k.attachment();
 
             if (a instanceof AbstractNioChannel) {
+                // 处理就绪事件
                 processSelectedKey(k, (AbstractNioChannel) a);
             } else {
                 @SuppressWarnings("unchecked")
                 NioTask<SelectableChannel> task = (NioTask<SelectableChannel>) a;
+                // 这里是测试代码。跟进去可以看到实现方法是测试类
                 processSelectedKey(k, task);
             }
 
@@ -741,6 +760,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
         final AbstractNioChannel.NioUnsafe unsafe = ch.unsafe();
+        // 处理selectionKey失效的情况
         if (!k.isValid()) {
             final EventLoop eventLoop;
             try {
@@ -766,25 +786,34 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
+            // 判断当前 channnel 就绪的事件类型
             if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
                 // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking
                 // See https://github.com/netty/netty/issues/924
+                // 获取当前selectionKey的interestOps
                 int ops = k.interestOps();
+                // 先将SelectionKey.OP_CONNECT按位取或，再与ops进行按位与
                 ops &= ~SelectionKey.OP_CONNECT;
+                // 将修改过的ops再写入到selectionsKey中
                 k.interestOps(ops);
 
+                // 连接server
                 unsafe.finishConnect();
             }
 
             // Process OP_WRITE first as we may be able to write some queued buffers and so free memory.
+            // 处理写就绪的情况
             if ((readyOps & SelectionKey.OP_WRITE) != 0) {
                 // Call forceFlush which will also take care of clear the OP_WRITE once there is nothing left to write
+                // 强制刷新（将user buffer中的数据写入到网关缓存）
                unsafe.forceFlush();
             }
 
             // Also check for readOps of 0 to workaround possible JDK bug which may otherwise lead
             // to a spin loop
+            // readyOps为0表示当前没有任何channel就绪
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+                // 将网卡缓存中的数据写入到user buffer
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {

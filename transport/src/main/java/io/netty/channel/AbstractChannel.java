@@ -70,8 +70,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
+        // 为channel生成id，由五部分构成
         id = newId();
+        // 生成一个底层操作对象unsafe
         unsafe = newUnsafe();
+        // 创建与这个channel相绑定的channelPipeline
         pipeline = newChannelPipeline();
     }
 
@@ -474,12 +477,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // channel与eventLoop的绑定就发生在这里，
+            // 需要注意，这里的eventLoop还没有绑定线程，因为这个线程还没有创建
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 判断当前线程与eventLoop所绑定线程是否是同一个线程
+            // 为什么判断是 inEventLoop
+            // 1、首先 channel 是注册到 bootstrap 的 eventLoopGroup 的其中一个 eventLoop 里面的；
+            // 2、如果调用 register 方法的线程和eventLoop里面的线程不是同一个，那就是 eventLoop 里面的线程还没启动
+            // 3、因为 channel 和 eventLoop的对应关系是 N:1 ，保证单飞 channel 的所有事件是在一个 eventLoop 里面处理
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
                 try {
+                    // 执行当前线程所绑定的eventLoop的execute(), 这个execute()会将参数任务写入到任务队列，并创建启动新的线程
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -505,6 +516,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 绑定
                 doRegister();
                 neverRegistered = false;
                 registered = true;
@@ -557,8 +569,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "address (" + localAddress + ") anyway as requested.");
             }
 
+            // 获取当前channel是否被激活。注意，现在还没有被激活，所以其值为false
             boolean wasActive = isActive();
             try {
+                // 绑定
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
@@ -570,6 +584,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        // 触发重写的channelActivate方法的执行
                         pipeline.fireChannelActive();
                     }
                 });

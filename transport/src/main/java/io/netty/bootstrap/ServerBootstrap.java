@@ -134,6 +134,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
         ChannelPipeline p = channel.pipeline();
 
+        // 将serverBootstrap中所有以child开头的属性写入到局部变量，
+        // 然后将它们初始化到childChannel中
         final EventLoopGroup currentChildGroup = childGroup;
         final ChannelHandler currentChildHandler = childHandler;
         final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
@@ -151,6 +153,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 将ServerBootstrapAcceptor处理器添加到pipeline
+                        // ServerBootstrapAcceptor处理器用于接收ServerBootstrap中的属性值，
+                        // 我们通常称其为连接处理器
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -204,14 +209,17 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // msg为客户端发送来的数据，其为NioSocketChannel，childChannel
             final Channel child = (Channel) msg;
 
+            // 将来自于ServerBootstrap的child开头属性初始化到childChannel中（childHandler、childOptions、childAttrs）
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
             setAttributes(child, childAttrs);
 
             try {
+                // 将childChannel注册到selector 需要注意的是，这里的selector与父channel所注册的selector不是同一个
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
